@@ -6,7 +6,7 @@
     "description": {
         "": "Relabels ribbon commands, tabs and panels in Taiwan Mandarin (zh-TW), Traditional Chinese script."
     },
-    "version": "0.1.0",
+    "version": "0.2.0",
     "runOnStartup": true,
     "supportedOS": "windows|mac",
     "editEnabled": true
