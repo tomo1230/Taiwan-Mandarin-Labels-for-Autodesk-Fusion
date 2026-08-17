@@ -23,6 +23,7 @@ and little else. Read [Scope](#scope) before deciding whether this is useful to 
   — 2,472 / 1,161 / 83 / 345 strings on Fusion 2704.1.53
 - Reverses cleanly: stop the add-in, or simply restart Fusion
 - Touches nothing on disk — no file in your Fusion installation is modified
+- **Applies at Fusion startup only** — see [Why startup only](#why-startup-only)
 
 **What it does not do**
 
@@ -168,6 +169,28 @@ disabled by default, in case a later release opens them up.
 
 **Do not trust `core.d.ts` alone.** Probe writes against the running product.
 
+### Why startup only
+
+Renaming command definitions *after* Fusion has finished starting corrupts the
+workspace switcher: all entries collapse to one identical label, so you cannot
+tell the workspaces apart. Applied during startup, the same renames are harmless.
+
+Bisection over the 2,472 renames located a trigger at index 10 —
+`VisibilityToggleCmd`, whose name is `Show/Hide`. Excluding it was not enough;
+renaming the remaining 2,470 still broke the switcher, so several unrelated
+definitions can each set it off on their own. The visible symptom is misleading
+too: the duplicated label is the name of a *different* command
+(`ActivateEnvironmentCommand`, whose name is literally `Workspace`), which Fusion
+falls back to when it can no longer resolve the real ones.
+
+Chasing every trigger would mean many rounds of manual bisection for no benefit,
+because **the switcher cannot be translated anyway** — `Workspace.name` is
+read-only. There was never anything to gain there; the only requirement is to
+leave it intact. Restricting the add-in to startup does that with certainty.
+
+`run(context)` checks `IsApplicationStartup` and returns early otherwise,
+changing nothing.
+
 ---
 
 ## Installation
@@ -232,9 +255,13 @@ setting is stored in your Autodesk account, so the restart needs a network conne
 
 ### 4. Run the add-in
 
-`Utilities` → `Add-Ins` → **Add-Ins** tab → select `FusionZhTW` → `Run`.
+`Utilities` → `Add-Ins` → **Add-Ins** tab → select `FusionZhTW` → tick
+**Run on Startup**, then **restart Fusion**.
 
-Tick **Run on Startup** so it applies automatically from then on.
+> **Startup only, by design.** Pressing `Run` mid-session does nothing except
+> show a reminder. Renaming command definitions while Fusion is already running
+> corrupts the workspace switcher — every entry collapses to the same label and
+> the menu becomes unusable. See [Why startup only](#why-startup-only).
 
 A summary dialog reports what was replaced. Set `SHOW_SUMMARY = False` in
 `FusionZhTW.py` to suppress it once you no longer need it; the same counts are
@@ -256,6 +283,7 @@ Panel names   : 345
 | Symptom | Cause |
 |---|---|
 | Add-in absent from the dialog | Folder name does not match the `.py` / `.manifest` names |
+| Only a reminder appears, nothing changes | `Run` was pressed mid-session — tick *Run on Startup* and restart |
 | `Translation table not found` | Step 2 was skipped, or the JSON files sit elsewhere |
 | All counts zero | Fusion's user language is not English |
 | Counts far below the reference | Run the diagnostic script (see [Files](#files)) |

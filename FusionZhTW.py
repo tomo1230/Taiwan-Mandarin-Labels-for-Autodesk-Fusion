@@ -277,12 +277,50 @@ def _apply(ui, table, tips, log):
     return n_cmd, n_tip, n_tab, n_panel, n_drop[0], n_ws
 
 
+def _is_startup(context):
+    """True when Fusion is running us as part of its own startup.
+
+    Fusion passes IsApplicationStartup in the run() context. It arrives either
+    as a dict or as a JSON string depending on version, so handle both and
+    treat anything unrecognised as "not startup" -- the safe direction, since
+    that path only warns instead of touching the UI.
+    """
+    data = context
+    if isinstance(data, str):
+        try:
+            data = json.loads(data)
+        except Exception:
+            return False
+    if isinstance(data, dict):
+        return bool(data.get("IsApplicationStartup", False))
+    return False
+
+
 def run(context):
     global _app, _ui
     log = []
     try:
         _app = adsk.core.Application.get()
         _ui = _app.userInterface
+
+        # Applying mid-session corrupts the workspace switcher: every entry
+        # collapses to the same label, leaving it unusable. Verified by
+        # bisection -- renaming VisibilityToggleCmd ('Show/Hide') alone is
+        # enough to trigger it, and it is not the only definition that can.
+        # The switcher is not translatable in the first place (Workspace.name
+        # is read-only), so there is nothing to gain by pressing on. Applying
+        # only during Fusion's own startup avoids the problem entirely.
+        if not _is_startup(context):
+            _ui.messageBox(
+                "FusionZhTW applies its labels during Fusion startup only.\n\n"
+                "Running it mid-session corrupts the workspace switcher, so "
+                "nothing has been changed.\n\n"
+                "Tick 'Run on Startup' in the Add-Ins dialog, then restart "
+                "Fusion.",
+                "FusionZhTW",
+            )
+            _log(["Skipped: not application startup; nothing was changed."])
+            return
 
         missing = [p for p in (DICT_PATH, DICT_LONG_PATH) if not os.path.exists(p)]
         if missing:
