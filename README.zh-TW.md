@@ -1,4 +1,4 @@
-# FusionZhTW
+# FusionZhTW — Fusion 台灣華語標籤增益集 / Taiwan Mandarin Labels for Fusion
 
 *[English](README.md) · 繁體中文（台灣）*
 
