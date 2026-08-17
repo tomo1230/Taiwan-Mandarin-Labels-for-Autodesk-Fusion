@@ -253,6 +253,10 @@ This is required, not cosmetic. The tables are keyed on English source text; wit
 a Japanese or German UI, `cd.name` returns that language and nothing matches. The
 setting is stored in your Autodesk account, so the restart needs a network connection.
 
+The add-in checks `userLanguage` before touching anything. On a non-English UI it
+names the language it found, explains why there is nothing to match, and changes
+nothing — rather than silently reporting zero replacements.
+
 ### 4. Run the add-in
 
 `Utilities` → `Add-Ins` → **Add-Ins** tab → select `FusionZhTW` → tick
@@ -284,8 +288,8 @@ Panel names   : 345
 |---|---|
 | Add-in absent from the dialog | Folder name does not match the `.py` / `.manifest` names |
 | Only a reminder appears, nothing changes | `Run` was pressed mid-session — tick *Run on Startup* and restart |
+| `FusionZhTW needs the user language set to English` | Exactly that — switch it in Preferences and restart |
 | `Translation table not found` | Step 2 was skipped, or the JSON files sit elsewhere |
-| All counts zero | Fusion's user language is not English |
 | Counts far below the reference | Run the diagnostic script (see [Files](#files)) |
 | Ribbon partly English | Expected — StringTable has no entry for those commands |
 

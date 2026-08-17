@@ -16,6 +16,7 @@ is recorded so stop() can put the original strings back.
 import json
 import os
 import re
+import time
 import traceback
 
 import adsk.core
@@ -143,7 +144,11 @@ def _swap(obj, attr, table):
 def _apply(ui, table, tips, log):
     """Relabel command definitions, then the tabs and panels of every workspace."""
     n_cmd = n_tip = n_tab = n_panel = 0
+    n_ws = 0
+
+    t0 = time.perf_counter()
     idx = _build_index(tips)
+    t_idx = time.perf_counter()
 
     defs = ui.commandDefinitions
     for i in range(defs.count):
@@ -157,8 +162,13 @@ def _apply(ui, table, tips, log):
             n_cmd += 1
         if _swap_rich(cd, "tooltip", tips, idx):
             n_tip += 1
+    t_cmd = time.perf_counter()
 
+    # Reaching toolbarTabs/toolbarPanels instantiates the workspace chrome, so
+    # this loop costs far more than the 400-odd strings it replaces. Timed
+    # separately to keep that visible.
     for ws in ui.workspaces:
+        n_ws += 1
         try:
             tabs = ws.toolbarTabs
         except Exception:
@@ -173,13 +183,70 @@ def _apply(ui, table, tips, log):
             for panel in panels:
                 if _swap(panel, "name", table):
                     n_panel += 1
+    t_ws = time.perf_counter()
 
     log.append(f"Command names : {n_cmd}")
     log.append(f"Tooltips      : {n_tip}")
     log.append(f"Tab names     : {n_tab}")
     log.append(f"Panel names   : {n_panel}")
     log.append(f"Total replaced: {len(_originals)}")
+    log.append("")
+    log.append("Timing")
+    log.append(f"  build index      : {(t_idx - t0) * 1000:8.0f} ms")
+    log.append(f"  {defs.count:5} definitions : {(t_cmd - t_idx) * 1000:8.0f} ms")
+    log.append(f"  {n_ws:5} workspaces  : {(t_ws - t_cmd) * 1000:8.0f} ms")
+    log.append(f"  apply total      : {(t_ws - t0) * 1000:8.0f} ms")
     return n_cmd, n_tip, n_tab, n_panel
+
+
+def _language_check(app):
+    """Return None when the UI is English, otherwise a message explaining why not.
+
+    The tables are keyed on English source strings, so on any localised UI
+    cd.name comes back in that language and nothing matches -- every count
+    would be zero. Checking up front turns that silent no-op into a clear
+    instruction.
+
+    If the preference cannot be read at all, return None and let the run
+    proceed: a missing check should not block a setup that would have worked.
+    """
+    try:
+        prefs = app.preferences.generalPreferences
+        current = prefs.userLanguage
+    except Exception:
+        return None
+
+    if current == adsk.core.UserLanguages.EnglishLanguage:
+        return None
+
+    names = {
+        adsk.core.UserLanguages.ChinesePRCLanguage: "Chinese (Simplified)",
+        adsk.core.UserLanguages.ChineseTaiwanLanguage: "Chinese (Traditional)",
+        adsk.core.UserLanguages.CzechLanguage: "Czech",
+        adsk.core.UserLanguages.FrenchLanguage: "French",
+        adsk.core.UserLanguages.GermanLanguage: "German",
+        adsk.core.UserLanguages.HungarianLanguage: "Hungarian",
+        adsk.core.UserLanguages.ItalianLanguage: "Italian",
+        adsk.core.UserLanguages.JapaneseLanguage: "Japanese",
+        adsk.core.UserLanguages.KoreanLanguage: "Korean",
+        adsk.core.UserLanguages.PolishLanguage: "Polish",
+        adsk.core.UserLanguages.PortugueseBrazilianLanguage: "Portuguese (Brazil)",
+        adsk.core.UserLanguages.RussianLanguage: "Russian",
+        adsk.core.UserLanguages.SpanishLanguage: "Spanish",
+        adsk.core.UserLanguages.TurkishLanguage: "Turkish",
+    }
+    current_name = names.get(current, f"a non-English language (code {current})")
+
+    return (
+        f"FusionZhTW needs the user language set to English.\n\n"
+        f"It is currently {current_name}, so nothing has been changed.\n\n"
+        "The translation table is keyed on the English labels, so on any "
+        "other language there is nothing for it to match.\n\n"
+        "To fix:\n"
+        "  1. User icon -> Preferences -> General -> User language\n"
+        "  2. Choose English\n"
+        "  3. Restart Fusion"
+    )
 
 
 def _is_startup(context):
@@ -205,7 +272,8 @@ def run(context):
     global _ui
     log = []
     try:
-        _ui = adsk.core.Application.get().userInterface
+        app = adsk.core.Application.get()
+        _ui = app.userInterface
 
         # Applying mid-session corrupts the workspace switcher: every entry
         # collapses to the same label, leaving it unusable. Verified by
@@ -226,6 +294,12 @@ def run(context):
             _log(["Skipped: not application startup; nothing was changed."])
             return
 
+        wrong_language = _language_check(app)
+        if wrong_language:
+            _ui.messageBox(wrong_language, "FusionZhTW")
+            _log(["Skipped: user language is not English; nothing was changed."])
+            return
+
         missing = [p for p in (DICT_PATH, DICT_LONG_PATH) if not os.path.exists(p)]
         if missing:
             _ui.messageBox(
@@ -236,13 +310,18 @@ def run(context):
             )
             return
 
+        t_start = time.perf_counter()
         with open(DICT_PATH, encoding="utf-8") as f:
             table = json.load(f)
         with open(DICT_LONG_PATH, encoding="utf-8") as f:
             tips = json.load(f)
+        t_load = time.perf_counter()
         log.append(f"Tables: {len(table)} names / {len(tips)} descriptions")
 
         n_cmd, n_tip, n_tab, n_panel = _apply(_ui, table, tips, log)
+        log.append(f"  load tables      : {(t_load - t_start) * 1000:8.0f} ms")
+        log.append(f"  RUN TOTAL        : "
+                   f"{(time.perf_counter() - t_start) * 1000:8.0f} ms")
         _log(log)
 
         if SHOW_SUMMARY:

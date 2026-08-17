@@ -239,6 +239,9 @@ Wrote: zh_tw_long.json [descriptions] 22975 entries (214 ambiguous, most frequen
 `cd.name` 會回傳該語言，導致完全無法比對。此設定儲存於您的 Autodesk 帳戶，
 因此重新啟動時需要網路連線。
 
+增益集會在動任何東西之前先檢查 `userLanguage`。若介面不是英文，它會指出
+偵測到的語言、說明為何無從比對，並且不做任何變更——而不是默默回報 0 筆替換。
+
 ### 4. 執行增益集
 
 `Utilities` → `Add-Ins` → **Add-Ins** 頁籤 → 選取 `FusionZhTW` →
@@ -269,8 +272,8 @@ Panel names   : 345
 |---|---|
 | 對話方塊中找不到增益集 | 資料夾名稱與 `.py` / `.manifest` 不一致 |
 | 只出現提示訊息，沒有任何變化 | 在執行期間按了 `Run`——請勾選 *Run on Startup* 並重新啟動 |
+| `FusionZhTW needs the user language set to English` | 就是字面意思——請在喜好設定中改為 English 並重新啟動 |
 | `Translation table not found` | 略過了步驟 2，或 JSON 檔不在正確位置 |
-| 所有數字皆為 0 | Fusion 的使用者語言不是 English |
 | 數字遠低於參考值 | 請執行診斷腳本（見[檔案](#檔案)） |
 | 功能區部分仍為英文 | 正常現象——StringTable 中沒有這些指令的條目 |
 
