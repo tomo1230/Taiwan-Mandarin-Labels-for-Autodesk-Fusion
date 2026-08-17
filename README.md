@@ -164,8 +164,8 @@ There are 570 `DropDownControl` instances under the panels (alongside 15,638
 `CommandControl` and 3,174 `SeparatorControl`), so the targets exist — they are
 simply unreachable.
 
-Both dead paths are kept in the source behind `TRY_DROPDOWN` and `TRY_WORKSPACE`,
-disabled by default, in case a later release opens them up.
+Both were implemented, measured at zero effect, and then removed rather than
+left in as disabled branches.
 
 **Do not trust `core.d.ts` alone.** Probe writes against the running product.
 

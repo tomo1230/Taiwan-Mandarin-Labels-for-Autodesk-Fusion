@@ -4,13 +4,13 @@ The target is Taiwan Mandarin written in Traditional Chinese -- the language
 Fusion would label "Chinese (Traditional)". It is not Taiwanese Hokkien, and
 not the Traditional Chinese used in Hong Kong, which differs in vocabulary.
 
-
 The translation tables (zh_tw.json, zh_tw_long.json) are produced by
 build_dict.py. Their keys are the English source strings, so Fusion's user
 language must be set to English -- with a Japanese UI, cd.name returns
 Japanese and nothing matches.
 
-Every replacement is recorded so stop() can put the original strings back.
+Labels are applied during Fusion's startup only; see run(). Every replacement
+is recorded so stop() can put the original strings back.
 """
 
 import json
@@ -28,22 +28,20 @@ LOG_PATH = os.path.join(HERE, "last_run.log")
 # Show the result in a dialog on startup. Set to False once this is routine.
 SHOW_SUMMARY = True
 
-# --- Paths confirmed unusable on the real product (2704.1.53) ---------------
-# Both look available in core.d.ts but are rejected by the implementation.
-# The code is kept and disabled by default in case a later release opens it up.
+# --- Deliberately not attempted, all verified on the product (2704.1.53) ----
 #
-# DropDownControl: id can be read, but reading name raises RuntimeError
-#   (InternalValidationError : nuInputControl) and text does not exist at all.
-#   There are 570 of them under the panels, none reachable.
-TRY_DROPDOWN = False
+# Drop-downs: 570 DropDownControl instances sit under the panels, but
+#   reading .name raises RuntimeError (InternalValidationError :
+#   nuInputControl) and .text does not exist at all, despite both being
+#   declared in core.d.ts. There is nothing to write to.
 #
-# Workspace: all 52 writes to tooltip/tooltipDescription failed with
-#   "The tooltip text displayed for the native workspaces could not be modified"
-#   Non-native workspaces (created by add-ins) may still accept writes, so
-#   isNative is excluded even when this is turned on.
-TRY_WORKSPACE = False
+# Workspaces: Workspace.name is read-only as declared, and all 52 writes to
+#   tooltip/tooltipDescription were refused with "The tooltip text displayed
+#   for the native workspaces could not be modified".
+#
+# Both were implemented, measured at zero effect, and removed rather than
+# left as dead branches. See README, "What blocks the rest".
 
-_app = None
 _ui = None
 
 # For restoring: [(object, attribute name, original value), ...]
@@ -142,58 +140,9 @@ def _swap(obj, attr, table):
     return True
 
 
-# Drop-downs can nest, so cap the depth. Real menus are 2-3 deep; the cap also
-# guarantees termination if controls ever contains itself.
-MAX_DEPTH = 8
-
-
-def _walk_controls(controls, table, counter, depth=0):
-    """Walk ToolbarControls recursively, relabelling every DropDownControl.
-
-    counter is a single-element list so the count is shared with the caller.
-    """
-    if controls is None or depth > MAX_DEPTH:
-        return
-    try:
-        n = controls.count
-    except Exception:
-        return
-
-    for i in range(n):
-        try:
-            ctrl = controls.item(i)
-        except Exception:
-            continue
-        if ctrl is None:
-            continue
-
-        # cast returns None for CommandControl, SeparatorControl and friends
-        try:
-            dd = adsk.core.DropDownControl.cast(ctrl)
-        except Exception:
-            dd = None
-        if dd is None:
-            continue
-
-        # Both name and text drive the display, so keep them in step
-        hit = False
-        if _swap(dd, "text", table):
-            hit = True
-        if _swap(dd, "name", table):
-            hit = True
-        if hit:
-            counter[0] += 1
-
-        try:
-            child = dd.controls
-        except Exception:
-            child = None
-        _walk_controls(child, table, counter, depth + 1)
-
-
 def _apply(ui, table, tips, log):
-    n_cmd = n_tip = n_tab = n_panel = n_ws = 0
-    n_drop = [0]
+    """Relabel command definitions, then the tabs and panels of every workspace."""
+    n_cmd = n_tip = n_tab = n_panel = 0
     idx = _build_index(tips)
 
     defs = ui.commandDefinitions
@@ -210,22 +159,6 @@ def _apply(ui, table, tips, log):
             n_tip += 1
 
     for ws in ui.workspaces:
-        # Workspace.name is read-only, and native workspaces also refuse
-        # writes to the description.
-        if TRY_WORKSPACE:
-            try:
-                native = ws.isNative
-            except Exception:
-                native = True
-            if not native:
-                hit = False
-                if _swap_rich(ws, "tooltip", tips, idx):
-                    hit = True
-                if _swap_rich(ws, "tooltipDescription", tips, idx):
-                    hit = True
-                if hit:
-                    n_ws += 1
-
         try:
             tabs = ws.toolbarTabs
         except Exception:
@@ -240,41 +173,13 @@ def _apply(ui, table, tips, log):
             for panel in panels:
                 if _swap(panel, "name", table):
                     n_panel += 1
-                if TRY_DROPDOWN:
-                    try:
-                        _walk_controls(panel.controls, table, n_drop)
-                    except Exception:
-                        pass
-
-    # Toolbars that live outside any workspace: QAT, navigation bar, banners
-    if TRY_DROPDOWN:
-        try:
-            toolbars = ui.toolbars
-            for i in range(toolbars.count):
-                tb = toolbars.item(i)
-                if tb is None:
-                    continue
-                try:
-                    _walk_controls(tb.controls, table, n_drop)
-                except Exception:
-                    continue
-        except Exception:
-            pass
 
     log.append(f"Command names : {n_cmd}")
     log.append(f"Tooltips      : {n_tip}")
     log.append(f"Tab names     : {n_tab}")
     log.append(f"Panel names   : {n_panel}")
-    if TRY_DROPDOWN:
-        log.append(f"Drop-downs    : {n_drop[0]}")
-    else:
-        log.append("Drop-downs    : disabled (name unreadable; confirmed on product)")
-    if TRY_WORKSPACE:
-        log.append(f"Workspaces    : {n_ws} (non-native only)")
-    else:
-        log.append("Workspaces    : disabled (native writes refused; confirmed on product)")
     log.append(f"Total replaced: {len(_originals)}")
-    return n_cmd, n_tip, n_tab, n_panel, n_drop[0], n_ws
+    return n_cmd, n_tip, n_tab, n_panel
 
 
 def _is_startup(context):
@@ -297,11 +202,10 @@ def _is_startup(context):
 
 
 def run(context):
-    global _app, _ui
+    global _ui
     log = []
     try:
-        _app = adsk.core.Application.get()
-        _ui = _app.userInterface
+        _ui = adsk.core.Application.get().userInterface
 
         # Applying mid-session corrupts the workspace switcher: every entry
         # collapses to the same label, leaving it unusable. Verified by
@@ -338,7 +242,7 @@ def run(context):
             tips = json.load(f)
         log.append(f"Tables: {len(table)} names / {len(tips)} descriptions")
 
-        n_cmd, n_tip, n_tab, n_panel, n_drop, n_ws = _apply(_ui, table, tips, log)
+        n_cmd, n_tip, n_tab, n_panel = _apply(_ui, table, tips, log)
         _log(log)
 
         if SHOW_SUMMARY:
