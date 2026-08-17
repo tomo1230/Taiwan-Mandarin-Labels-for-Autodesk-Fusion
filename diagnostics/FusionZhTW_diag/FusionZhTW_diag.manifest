@@ -1,0 +1,11 @@
+{
+    "autodeskProduct": "Fusion360",
+    "type": "script",
+    "id": "3e9a5c71-84b2-4d06-bf13-5a7c2e9d1088",
+    "author": "",
+    "description": {
+        "": "Diagnoses why FusionZhTW misses dropdowns, workspaces and tooltips."
+    },
+    "supportedOS": "windows|mac",
+    "editEnabled": true
+}

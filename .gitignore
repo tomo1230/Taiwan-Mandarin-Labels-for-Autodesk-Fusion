@@ -1,0 +1,7 @@
+# Generated from Autodesk's proprietary StringTable data. Do not redistribute.
+zh_tw.json
+zh_tw_long.json
+
+last_run.log
+__pycache__/
+*.pyc
