@@ -1,4 +1,4 @@
-# FusionZhTW — Taiwan Mandarin Labels for Fusion / Fusion 台灣華語標籤增益集
+# FusionZhTW — Taiwan Mandarin Labels for Autodesk Fusion / Autodesk Fusion 台灣華語標籤增益集
 
 *English · [繁體中文（台灣）](README.zh-TW.md)*
 
