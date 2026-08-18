@@ -336,104 +336,40 @@ Chinese build, which may not match Taiwanese CAD convention.
 
 Correcting the few dozen commands you use daily is worth more than the bulk import.
 
-### Editing in a spreadsheet
+### Correcting the tables
 
-> Full guide, including the Excel pitfalls: **[EDITING.md](EDITING.md)**
-
-The tables are plain JSON keyed on English text, so small fixes can be made in
+The tables are plain JSON keyed on English text, so a one-off fix can be made in
 the file directly:
 
 ```json
 { "Extrude": "your preferred term" }
 ```
 
-For anything larger, round-trip them through CSV:
+For anything larger, `csv_tools.py` round-trips both tables through CSV so they
+can be edited in a spreadsheet:
 
 ```bash
-python csv_tools.py export
+python csv_tools.py export     # -> zh_tw.csv, zh_tw_long.csv
+python csv_tools.py import     # -> back into the .json
+python csv_tools.py check      # report symbols the translation dropped
 ```
 
-That writes `zh_tw.csv` and `zh_tw_long.csv` as UTF-8 with a BOM, which is what
-Excel needs to show Chinese correctly. Edit the `traditional` column — leave
-`english` alone, since it is the key matched against Fusion's own labels, and
-changing it just disables that entry. Then:
+Three things are worth knowing before you start:
 
-```bash
-python csv_tools.py import
-```
+- Edit the `traditional` column only. `english` is the key matched against
+  Fusion's labels, and changing it disables the entry
+- The English side carries control characters the UI acts on — `&` accelerators,
+  a trailing `...`, `%1%` placeholders, markup and `href` targets. Dropping one
+  changes behaviour, not just wording
+- **Excel corrupts 79 entries** that begin with `+`, `-` or `=`, reading them as
+  formulas. Import the file rather than double-clicking it
 
-The previous JSON is kept as `.json.bak`, and the run reports what changed:
+Every write is preceded by a timestamped backup in `backups/`, and an import
+that would delete more than 10% of the entries is refused.
 
-```
-zh_tw.json          13998 entries  [names]
-    changed 2, added 1, removed 0
-      'Extrude': '拉伸' -> '擠出'
-```
+**Full guide: [EDITING.md](EDITING.md)** — the symbol reference, the Excel
+import route, recovery, and what `import` does with imperfect rows.
 
-Rows with an empty column are skipped and reported; duplicate keys take the last
-value. An import that would drop more than 10% of the entries is refused, since
-that usually means a truncated or filtered CSV — pass `--force` if the deletion
-is deliberate.
-
-### Symbols you must carry across
-
-The `english` column is not plain prose. It carries control characters the UI
-acts on, and dropping one changes behaviour rather than wording.
-
-| In the text | Meaning | If you drop it |
-|---|---|---|
-| `&` before a letter | Alt shortcut; the letter is underlined, the `&` is not drawn | The keyboard shortcut stops working |
-| `...` at the end | A dialog will open, rather than the command running immediately | The user cannot tell the two apart |
-| `%1%`, `{0}` | A value substituted at runtime | The text breaks, or shows a raw placeholder |
-| `<b>` `<br>` `<p>` `<a>` | Markup Fusion renders | Layout breaks; `<br>` also drives the add-in's fragment matching |
-| `href="..."` | Help link target | The link goes nowhere |
-| `(...)` | Either an accelerator holder, a state (`(All)`), or a plural (`Row(s)`) | Depends — read it before removing |
-
-Chinese cannot mark an accelerator mid-word, so the convention is to append it
-in parentheses. The generated tables already follow it:
-
-```
-"&Add Row"  ->  "新增行(&A)"
-"&Close"    ->  "關閉(&C)"
-```
-
-Keep accelerators unique within one menu, or they collide.
-
-To find entries where the two sides disagree:
-
-```bash
-python csv_tools.py check
-```
-
-It reports placeholders, tags, link targets, accelerators, trailing `...` and
-stray whitespace, with examples:
-
-```
-zh_tw.json  [names]  13998 entries
-  accelerator: 25 -- & marks the Alt shortcut; dropping it removes the shortcut
-      '&Cancel'
-   -> '取消'
-```
-
-Autodesk's own Simplified Chinese data already contains 90 such mismatches, so
-a non-zero count is expected. Run it before and after editing and compare,
-rather than trying to reach zero.
-
-### Backups
-
-Both `build_dict.py` and `csv_tools.py` copy the current tables into `backups/`
-before overwriting them, named with the time taken:
-
-```
-backups/zh_tw.20260818-125617966.json
-```
-
-This matters because rebuilding with `build_dict.py` regenerates both tables
-from StringTable and discards every hand-correction. The twenty most recent
-generations of each table are kept and older ones are pruned.
-
-Recovering an edit means copying the file back over `zh_tw.json` — the newest
-generation is the last one alphabetically, since the name sorts chronologically.
 
 Where one English string had several Simplified translations, the most frequent
 was taken: 159 such cases in the name table, 214 in the description table.
