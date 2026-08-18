@@ -313,6 +313,7 @@ already destroyed (which can happen when workspaces are rebuilt), restarting cle
 | `build_dict.py` | Table generator, run outside Fusion |
 | `csv_tools.py` | Exports the tables to CSV and reads them back, run outside Fusion |
 | `tablebackup.py` | Timestamped backups, used by the two tools above |
+| `EDITING.md` | How to correct the tables safely, and what not to touch |
 | `zh_tw.json` | Generated — display names |
 | `zh_tw_long.json` | Generated — tooltips and descriptions |
 | `last_run.log` | Written on each run with per-category counts |
@@ -336,6 +337,8 @@ Chinese build, which may not match Taiwanese CAD convention.
 Correcting the few dozen commands you use daily is worth more than the bulk import.
 
 ### Editing in a spreadsheet
+
+> Full guide, including the Excel pitfalls: **[EDITING.md](EDITING.md)**
 
 The tables are plain JSON keyed on English text, so small fixes can be made in
 the file directly:

@@ -296,6 +296,7 @@ Fusion，介面必定回復原狀——即使發生當機，或 `stop()` 執行�
 | `build_dict.py` | 對照表產生器，於 Fusion 之外執行 |
 | `csv_tools.py` | 將對照表匯出為 CSV 並匯回，於 Fusion 之外執行 |
 | `tablebackup.py` | 時間戳記備份，供上述兩支工具使用 |
+| `EDITING.zh-TW.md` | 如何安全修正對照表，以及哪些不能動 |
 | `zh_tw.json` | 產生檔——顯示名稱 |
 | `zh_tw_long.json` | 產生檔——工具提示與說明文字 |
 | `last_run.log` | 每次執行時寫入各類別的統計數字 |
@@ -318,6 +319,8 @@ CAD 業界的慣用說法。
 修正您每天實際會用到的那幾十個指令，效益遠高於整批匯入。
 
 ### 在試算表中編輯
+
+> 完整指南（含 Excel 陷阱）：**[EDITING.zh-TW.md](EDITING.zh-TW.md)**
 
 對照表是以英文文字為鍵的純 JSON，少量修改可直接編輯檔案：
 
