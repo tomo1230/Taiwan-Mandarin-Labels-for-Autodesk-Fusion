@@ -294,6 +294,7 @@ Fusion，介面必定回復原狀——即使發生當機，或 `stop()` 執行�
 | `FusionZhTW.py` | 增益集本體 |
 | `FusionZhTW.manifest` | 增益集描述檔 |
 | `build_dict.py` | 對照表產生器，於 Fusion 之外執行 |
+| `csv_tools.py` | 將對照表匯出為 CSV 並匯回，於 Fusion 之外執行 |
 | `zh_tw.json` | 產生檔——顯示名稱 |
 | `zh_tw_long.json` | 產生檔——工具提示與說明文字 |
 | `last_run.log` | 每次執行時寫入各類別的統計數字 |
@@ -313,13 +314,43 @@ OpenCC 轉換的是字形與一般詞彙，**它並不理解 CAD 專業術語**�
 `Extrude` 會被轉為 `拉伸`，這是從簡體中文版本沿用而來，未必符合台灣
 CAD 業界的慣用說法。
 
-對照表是以英文文字為鍵的純 JSON，可直接覆寫任何條目：
+修正您每天實際會用到的那幾十個指令，效益遠高於整批匯入。
+
+### 在試算表中編輯
+
+對照表是以英文文字為鍵的純 JSON，少量修改可直接編輯檔案：
 
 ```json
 { "Extrude": "您偏好的術語" }
 ```
 
-修正您每天實際會用到的那幾十個指令，效益遠高於整批匯入。
+若要大量修改，可透過 CSV 來回轉換：
+
+```bash
+python csv_tools.py export
+```
+
+這會輸出 `zh_tw.csv` 與 `zh_tw_long.csv`，採用帶 BOM 的 UTF-8，
+這正是 Excel 正確顯示中文所需的格式。請只編輯 `traditional` 欄；
+`english` 欄是用來與 Fusion 自身標籤比對的鍵，改動它只會讓該條目失效。接著執行：
+
+```bash
+python csv_tools.py import
+```
+
+先前的 JSON 會保留為 `.json.bak`，並回報變更內容：
+
+```
+zh_tw.json          13998 entries  [names]
+    changed 2, added 1, removed 0
+      'Extrude': '拉伸' -> '擠出'
+```
+
+任一欄為空的列會被略過並回報；重複的鍵以最後一筆為準。
+若匯入會刪除超過 10% 的條目則予以拒絕，因為那通常表示 CSV 被截斷或套用了篩選——
+如果確實要刪除，請加上 `--force`。
+
+重新執行 `build_dict.py` 會覆寫全部內容，因此若打算重建，請保留您編輯過的 CSV。
 
 當同一個英文字串對應到多個簡體譯文時，採用出現頻率最高者：
 名稱對照表中有 159 例，說明對照表中有 214 例。

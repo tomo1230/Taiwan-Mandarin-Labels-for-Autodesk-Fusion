@@ -311,6 +311,7 @@ already destroyed (which can happen when workspaces are rebuilt), restarting cle
 | `FusionZhTW.py` | The add-in |
 | `FusionZhTW.manifest` | Add-in descriptor |
 | `build_dict.py` | Table generator, run outside Fusion |
+| `csv_tools.py` | Exports the tables to CSV and reads them back, run outside Fusion |
 | `zh_tw.json` | Generated — display names |
 | `zh_tw_long.json` | Generated — tooltips and descriptions |
 | `last_run.log` | Written on each run with per-category counts |
@@ -331,13 +332,47 @@ OpenCC converts characters and general vocabulary. **It does not know CAD
 terminology.** `Extrude` comes through as `拉伸`, carried over from the Simplified
 Chinese build, which may not match Taiwanese CAD convention.
 
-The tables are plain JSON keyed on English text. Override any entry directly:
+Correcting the few dozen commands you use daily is worth more than the bulk import.
+
+### Editing in a spreadsheet
+
+The tables are plain JSON keyed on English text, so small fixes can be made in
+the file directly:
 
 ```json
 { "Extrude": "your preferred term" }
 ```
 
-Correcting the few dozen commands you use daily is worth more than the bulk import.
+For anything larger, round-trip them through CSV:
+
+```bash
+python csv_tools.py export
+```
+
+That writes `zh_tw.csv` and `zh_tw_long.csv` as UTF-8 with a BOM, which is what
+Excel needs to show Chinese correctly. Edit the `traditional` column — leave
+`english` alone, since it is the key matched against Fusion's own labels, and
+changing it just disables that entry. Then:
+
+```bash
+python csv_tools.py import
+```
+
+The previous JSON is kept as `.json.bak`, and the run reports what changed:
+
+```
+zh_tw.json          13998 entries  [names]
+    changed 2, added 1, removed 0
+      'Extrude': '拉伸' -> '擠出'
+```
+
+Rows with an empty column are skipped and reported; duplicate keys take the last
+value. An import that would drop more than 10% of the entries is refused, since
+that usually means a truncated or filtered CSV — pass `--force` if the deletion
+is deliberate.
+
+Regenerating with `build_dict.py` overwrites everything, so keep your edited CSV
+if you plan to rebuild.
 
 Where one English string had several Simplified translations, the most frequent
 was taken: 159 such cases in the name table, 214 in the description table.
