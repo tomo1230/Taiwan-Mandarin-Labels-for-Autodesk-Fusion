@@ -2,6 +2,7 @@
 
     python csv_tools.py export      zh_tw.json / zh_tw_long.json -> .csv
     python csv_tools.py import      the .csv files -> back into the .json
+    python csv_tools.py check       report symbols the translation dropped
 
 The CSV carries two columns, english and traditional. Only the second is meant
 to be edited: english is the lookup key the add-in matches against Fusion's own
@@ -19,7 +20,9 @@ go ahead anyway.
 import csv
 import json
 import os
+import re
 import sys
+from collections import Counter
 
 import tablebackup
 
@@ -135,6 +138,70 @@ def do_import():
                   f"{os.path.join(tablebackup.BACKUP_DIR, os.path.basename(saved))}")
 
 
+# --- consistency checks --------------------------------------------------
+#
+# The english side carries control characters the UI depends on, and a
+# translation that drops them changes behaviour rather than wording. These
+# compare the two sides and report whatever went missing.
+
+_TAG = re.compile(r"</?([a-zA-Z][a-zA-Z0-9]*)\b[^>]*>")
+_HREF = re.compile(r'href\s*=\s*"([^"]*)"', re.I)
+_PLACEHOLDER = re.compile(r"%[0-9A-Za-z_]+%|\{\d+\}")
+
+
+def _tags(s):
+    return Counter(m.lower() for m in _TAG.findall(s))
+
+
+CHECKS = [
+    # (label, why it matters, test)
+    ("placeholder", "a value is substituted here at runtime",
+     lambda e, z: set(_PLACEHOLDER.findall(e)) != set(_PLACEHOLDER.findall(z))),
+    ("html tag", "markup has to survive or the layout breaks",
+     lambda e, z: _tags(e) != _tags(z)),
+    ("link target", "href must stay identical or the help link dies",
+     lambda e, z: set(_HREF.findall(e)) != set(_HREF.findall(z))),
+    ("accelerator", "& marks the Alt shortcut; dropping it removes the shortcut",
+     lambda e, z: ("&" in e) != ("&" in z)),
+    ("ellipsis", "... tells the user a dialog will open",
+     lambda e, z: e.rstrip().endswith("...") != z.rstrip().endswith("...")),
+    ("stray space", "leading or trailing space in the translation",
+     lambda e, z: z != z.strip()),
+]
+
+
+def check():
+    total = 0
+    for js, _cs, label in PAIRS:
+        if not os.path.exists(_p(js)):
+            print("  skip %s (not found)" % js)
+            continue
+        with open(_p(js), encoding="utf-8") as f:
+            table = json.load(f)
+
+        print("\n  %s  [%s]  %d entries" % (js, label, len(table)))
+        clean = True
+        for name, why, differs in CHECKS:
+            hits = [(e, z) for e, z in table.items() if differs(e, z)]
+            if not hits:
+                continue
+            clean = False
+            total += len(hits)
+            print("    %s: %d -- %s" % (name, len(hits), why))
+            for e, z in hits[:3]:
+                print("        %r" % e[:58])
+                print("     -> %r" % z[:58])
+            if len(hits) > 3:
+                print("        ... and %d more" % (len(hits) - 3))
+        if clean:
+            print("    nothing to report")
+
+    print("\n  %d entries differ between the two sides." % total)
+    print("  Some of that comes from Autodesk's own Simplified Chinese data, so")
+    print("  a count above zero is normal. Compare before and after your edits")
+    print("  rather than aiming for zero.")
+
+
 def main():
     global FORCE
     FORCE = "--force" in sys.argv
@@ -147,6 +214,9 @@ def main():
         print("Importing from CSV:")
         do_import()
         print("\nRestart Fusion to pick up the new tables.")
+    elif cmd == "check":
+        print("Checking the tables:")
+        check()
     else:
         print(__doc__)
         sys.exit(1)

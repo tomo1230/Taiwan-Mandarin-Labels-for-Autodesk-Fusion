@@ -372,6 +372,50 @@ value. An import that would drop more than 10% of the entries is refused, since
 that usually means a truncated or filtered CSV — pass `--force` if the deletion
 is deliberate.
 
+### Symbols you must carry across
+
+The `english` column is not plain prose. It carries control characters the UI
+acts on, and dropping one changes behaviour rather than wording.
+
+| In the text | Meaning | If you drop it |
+|---|---|---|
+| `&` before a letter | Alt shortcut; the letter is underlined, the `&` is not drawn | The keyboard shortcut stops working |
+| `...` at the end | A dialog will open, rather than the command running immediately | The user cannot tell the two apart |
+| `%1%`, `{0}` | A value substituted at runtime | The text breaks, or shows a raw placeholder |
+| `<b>` `<br>` `<p>` `<a>` | Markup Fusion renders | Layout breaks; `<br>` also drives the add-in's fragment matching |
+| `href="..."` | Help link target | The link goes nowhere |
+| `(...)` | Either an accelerator holder, a state (`(All)`), or a plural (`Row(s)`) | Depends — read it before removing |
+
+Chinese cannot mark an accelerator mid-word, so the convention is to append it
+in parentheses. The generated tables already follow it:
+
+```
+"&Add Row"  ->  "新增行(&A)"
+"&Close"    ->  "關閉(&C)"
+```
+
+Keep accelerators unique within one menu, or they collide.
+
+To find entries where the two sides disagree:
+
+```bash
+python csv_tools.py check
+```
+
+It reports placeholders, tags, link targets, accelerators, trailing `...` and
+stray whitespace, with examples:
+
+```
+zh_tw.json  [names]  13998 entries
+  accelerator: 25 -- & marks the Alt shortcut; dropping it removes the shortcut
+      '&Cancel'
+   -> '取消'
+```
+
+Autodesk's own Simplified Chinese data already contains 90 such mismatches, so
+a non-zero count is expected. Run it before and after editing and compare,
+rather than trying to reach zero.
+
 ### Backups
 
 Both `build_dict.py` and `csv_tools.py` copy the current tables into `backups/`
