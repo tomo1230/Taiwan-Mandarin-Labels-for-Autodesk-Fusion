@@ -8,7 +8,9 @@ Chinese) on the same line, so those files alone yield English -> Simplified pair
 Those pass through OpenCC's s2twp profile, which converts Simplified to
 Traditional and swaps in Taiwan Mandarin vocabulary (软件 -> 軟體, not 軟件).
 
-Run this outside Fusion. It writes zh_tw.json and zh_tw_long.json alongside itself.
+Run this outside Fusion. It writes zh_tw.json and zh_tw_long.json alongside
+itself, keeping a timestamped copy of whatever they held before in backups/ --
+a rebuild otherwise discards any hand-corrected terminology.
 """
 
 import json
@@ -16,6 +18,8 @@ import os
 import re
 import sys
 from collections import Counter, defaultdict
+
+import tablebackup
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "zh_tw.json")
@@ -123,10 +127,16 @@ def main():
 
     for path, pairs, label in ((OUT, short, "names"), (OUT_LONG, long_, "descriptions")):
         table, ambiguous = build(pairs)
+        # Rebuilding discards any hand-corrected terminology, so keep the
+        # previous generation before overwriting it.
+        saved = tablebackup.backup(path)
         with open(path, "w", encoding="utf-8") as f:
             json.dump(table, f, ensure_ascii=False, indent=0, sort_keys=True)
         print(f"Wrote: {os.path.basename(path)} [{label}] {len(table)} entries "
               f"({ambiguous} ambiguous, most frequent reading kept)")
+        if saved:
+            print(f"       previous copy kept at "
+                  f"{os.path.join(tablebackup.BACKUP_DIR, os.path.basename(saved))}")
 
     table, _ = build(short)
     for en in ["Extrude", "Revolve", "Sketch", "Save", "Hole", "Fillet"]:

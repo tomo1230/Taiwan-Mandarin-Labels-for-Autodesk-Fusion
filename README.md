@@ -312,6 +312,7 @@ already destroyed (which can happen when workspaces are rebuilt), restarting cle
 | `FusionZhTW.manifest` | Add-in descriptor |
 | `build_dict.py` | Table generator, run outside Fusion |
 | `csv_tools.py` | Exports the tables to CSV and reads them back, run outside Fusion |
+| `tablebackup.py` | Timestamped backups, used by the two tools above |
 | `zh_tw.json` | Generated — display names |
 | `zh_tw_long.json` | Generated — tooltips and descriptions |
 | `last_run.log` | Written on each run with per-category counts |
@@ -371,8 +372,21 @@ value. An import that would drop more than 10% of the entries is refused, since
 that usually means a truncated or filtered CSV — pass `--force` if the deletion
 is deliberate.
 
-Regenerating with `build_dict.py` overwrites everything, so keep your edited CSV
-if you plan to rebuild.
+### Backups
+
+Both `build_dict.py` and `csv_tools.py` copy the current tables into `backups/`
+before overwriting them, named with the time taken:
+
+```
+backups/zh_tw.20260818-125617966.json
+```
+
+This matters because rebuilding with `build_dict.py` regenerates both tables
+from StringTable and discards every hand-correction. The twenty most recent
+generations of each table are kept and older ones are pruned.
+
+Recovering an edit means copying the file back over `zh_tw.json` — the newest
+generation is the last one alphabetically, since the name sorts chronologically.
 
 Where one English string had several Simplified translations, the most frequent
 was taken: 159 such cases in the name table, 214 in the description table.

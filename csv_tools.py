@@ -10,17 +10,18 @@ labels, so changing it silently disables that entry.
 Files are written UTF-8 with a BOM, which is what Excel needs to open Chinese
 text correctly. LibreOffice and Google Sheets accept it too.
 
-Importing rewrites the .json files and keeps a .json.bak of the previous
-contents. An import that would drop more than 10% of the entries is refused,
-since that usually means a truncated or filtered CSV; pass --force to go
-ahead anyway.
+Importing rewrites the .json files, keeping a timestamped copy of the previous
+contents in backups/. An import that would drop more than 10% of the entries is
+refused, since that usually means a truncated or filtered CSV; pass --force to
+go ahead anyway.
 """
 
 import csv
 import json
 import os
-import shutil
 import sys
+
+import tablebackup
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -99,7 +100,6 @@ def do_import():
         if os.path.exists(_p(js)):
             with open(_p(js), encoding="utf-8") as f:
                 before = json.load(f)
-            shutil.copy2(_p(js), _p(js + ".bak"))
 
         added = [k for k in table if k not in before]
         removed = [k for k in before if k not in table]
@@ -116,6 +116,7 @@ def do_import():
             print("      Re-export, or pass --force if the deletion is intended.")
             continue
 
+        saved = tablebackup.backup(_p(js))
         with open(_p(js), "w", encoding="utf-8") as f:
             json.dump(table, f, ensure_ascii=False, indent=0, sort_keys=True)
 
@@ -129,8 +130,9 @@ def do_import():
             print(f"      ! {p}")
         if len(problems) > 10:
             print(f"      ! ... and {len(problems) - 10} more")
-        if before:
-            print(f"      backup: {js}.bak")
+        if saved:
+            print(f"      backup: "
+                  f"{os.path.join(tablebackup.BACKUP_DIR, os.path.basename(saved))}")
 
 
 def main():

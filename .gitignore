@@ -2,10 +2,10 @@
 zh_tw.json
 zh_tw_long.json
 
-# CSV exports carry the same data, and .bak files are import backups.
+# CSV exports and backups carry the same data.
 zh_tw.csv
 zh_tw_long.csv
-*.json.bak
+backups/
 
 last_run.log
 __pycache__/
